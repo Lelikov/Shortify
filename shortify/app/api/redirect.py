@@ -4,6 +4,7 @@ from fastapi.responses import RedirectResponse
 from shortify.app.api.v1.endpoints.urls import short_url_not_found
 from shortify.app.models import ShortUrl
 
+
 router = APIRouter(
     # Hide this router from the OpenAPI docs since it's not a part of
     # the API, but rather a part of the main app.
@@ -21,7 +22,7 @@ router = APIRouter(
 
 @router.get("/{ident}", response_class=RedirectResponse)
 async def redirect_by_identifier(worker: BackgroundTasks, ident: str) -> str:
-    if short_url := await ShortUrl.get_by_ident(ident=ident):
+    if short_url := await ShortUrl.get_by_ident(ident=ident, is_check_expires_at=True):
         worker.add_task(ShortUrl.visit, instance=short_url)
         return short_url.origin
     raise short_url_not_found(ident)

@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING
+import datetime
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -10,16 +11,24 @@ from shortify.app.api.v1.deps import (
 from shortify.app.models import ShortUrl, User
 from shortify.app.utils import cbv, paginate
 
+
 if TYPE_CHECKING:
     from shortify.app.utils.types import PaginationDict
 
 router = APIRouter()
 
 
-def short_url_not_found(ident_or_slug: str) -> HTTPException:
+def short_url_not_found(ident: str) -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
-        detail=f"Short URL with identifier/slug {ident_or_slug!r} not found",
+        detail=f"Short URL with identifier {ident!r} not found",
+    )
+
+
+def short_url_by_external_id_not_found(external_id: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Short URL with external_id {external_id!r} not found",
     )
 
 
@@ -29,18 +38,12 @@ class BasicUserViews:
 
     @router.post("/shorten", response_model=schemas.ShortUrl)
     async def shorten_url(self, payload: schemas.ShortUrlCreate) -> ShortUrl:
-        if payload.slug and await ShortUrl.get_by_slug(slug=payload.slug):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="The URL associated with this slug already exists",
-            )
-        short_url = await ShortUrl.shorten(
+        return await ShortUrl.shorten(
             url=payload.url,
-            slug=payload.slug,
-            expiration_days=payload.expiration_days,
+            external_id=payload.external_id,
+            expires_at=payload.expires_at,
             user_id=self.user.id,
         )
-        return short_url
 
 
 @cbv(router)
@@ -50,21 +53,74 @@ class SuperuserViews:
     @router.get("/", response_model=schemas.Paginated[schemas.ShortUrl])
     async def get_urls(
         self,
-        paging: schemas.PaginationParams = Depends(),
-        sorting: schemas.SortingParams = Depends(),
+        paging: Annotated[schemas.PaginationParams, Depends()],
+        sorting: Annotated[schemas.SortingParams, Depends()],
     ) -> "PaginationDict":
         return await paginate(ShortUrl, paging, sorting)
 
-    @router.get("/{ident}", response_model=schemas.ShortUrl)
+    @router.get("/ident/{ident}", response_model=schemas.ShortUrl)
     async def get_short_url(self, ident: str) -> ShortUrl:
         short_url = await ShortUrl.get_by_ident(ident=ident)
         if not short_url:
             raise short_url_not_found(ident)
         return short_url
 
-    @router.delete("/{ident}", status_code=status.HTTP_204_NO_CONTENT)
+    @router.patch("/ident/{ident}", response_model=schemas.ShortUrl)
+    async def update_short_url(
+        self,
+        ident: str,
+        payload: schemas.ShortUrlUpdate,
+    ) -> ShortUrl:
+        short_url = await ShortUrl.get_by_ident(ident=ident)
+        if not short_url:
+            raise short_url_not_found(ident)
+        return await self._update_short_url(short_url, payload)
+
+    @router.delete("/ident/{ident}", status_code=status.HTTP_204_NO_CONTENT)
     async def delete_short_url(self, ident: str) -> None:
         short_url = await ShortUrl.get_by_ident(ident=ident)
         if not short_url:
             raise short_url_not_found(ident)
         await short_url.delete()
+
+    @router.get("/external/{external_id}", response_model=schemas.ShortUrl)
+    async def get_short_url_by_external_id(self, external_id: str) -> ShortUrl:
+        short_url = await ShortUrl.get_by_external_id(external_id=external_id)
+        if not short_url:
+            raise short_url_by_external_id_not_found(external_id)
+        return short_url
+
+    @router.patch("/external/{external_id}", response_model=schemas.ShortUrl)
+    async def update_short_url_by_external_id(
+        self,
+        external_id: str,
+        payload: schemas.ShortUrlUpdate,
+    ) -> ShortUrl:
+        short_url = await ShortUrl.get_by_external_id(external_id=external_id)
+        if not short_url:
+            raise short_url_by_external_id_not_found(external_id)
+        return await self._update_short_url(short_url, payload)
+
+    @router.delete("/external/{external_id}", status_code=status.HTTP_204_NO_CONTENT)
+    async def delete_short_url_by_external_id(self, external_id: str) -> None:
+        short_url = await ShortUrl.get_by_external_id(external_id=external_id)
+        if not short_url:
+            raise short_url_by_external_id_not_found(external_id)
+        await short_url.delete()
+
+    async def _update_short_url(
+        self,
+        short_url: ShortUrl,
+        payload: schemas.ShortUrlUpdate,
+    ) -> ShortUrl:
+        update_data = payload.dict(exclude_unset=True)
+        if "url" in update_data:
+            short_url.origin = str(update_data["url"])
+        if "external_id" in update_data:
+            short_url.external_id = update_data["external_id"]
+        if "expires_at" in update_data:
+            short_url.expires_at = update_data["expires_at"]
+
+        short_url.updated_at = datetime.datetime.now(datetime.UTC)
+        await short_url.save()
+        return short_url

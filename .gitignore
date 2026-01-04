@@ -29,3 +29,4 @@ poetry.toml
 
 # Application logs
 *.log
+/mongodb-data/

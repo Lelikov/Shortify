@@ -1,12 +1,13 @@
+import datetime
+import hashlib
 import secrets
-from datetime import datetime, timedelta
-from hashlib import md5
-from typing import Any, Optional, Union
+from typing import Any
 
 from jose import jwt
 from passlib.context import CryptContext
 
 from shortify.app.core.config import settings
+
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -25,14 +26,14 @@ def get_password_hash(password: str) -> str:
 
 
 def create_access_token(
-    subject: Union[str, Any],
-    expires_delta: Optional[timedelta] = None,
+    subject: str | Any,
+    expires_delta: datetime.timedelta | None = None,
 ) -> str:
     """Create a JWT access token."""
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.datetime.now(datetime.UTC) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(
+        expire = datetime.datetime.now(datetime.UTC) + datetime.timedelta(
             settings.ACCESS_TOKEN_EXPIRE_MINUTES,
         )
     payload = {
@@ -44,4 +45,4 @@ def create_access_token(
 
 def create_api_key() -> str:
     """Create a random API key."""
-    return md5(secrets.token_bytes(32)).hexdigest()
+    return hashlib.sha256(secrets.token_bytes(32)).hexdigest()

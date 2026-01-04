@@ -1,19 +1,18 @@
 from datetime import datetime
-from typing import Optional
 
-from pydantic import AnyUrl, BaseModel, Field, validator
+from pydantic import AnyUrl, BaseModel
 
 
 class ShortUrlCreate(BaseModel):
     url: AnyUrl
-    slug: Optional[str] = Field(None, max_length=64, min_length=3)
-    expiration_days: Optional[float] = Field(None, ge=0.0)
+    external_id: str | None = None
+    expires_at: datetime | None = None
 
-    @validator("slug")
-    def slug_normalizer(cls, slug: Optional[str]) -> Optional[str]:  # noqa
-        if slug:
-            slug = slug.strip().lower().replace(" ", "-")
-        return slug
+
+class ShortUrlUpdate(BaseModel):
+    url: AnyUrl | None = None
+    external_id: str | None = None
+    expires_at: datetime | None = None
 
 
 class ShortUrl(BaseModel):
@@ -21,9 +20,10 @@ class ShortUrl(BaseModel):
     origin: AnyUrl
     views: int
     created_at: datetime
-    expires_at: Optional[datetime] = None
-    last_visit_at: Optional[datetime] = None
-    slug: Optional[str] = None
+    updated_at: datetime | None = None
+    external_id: str | None = None
+    expires_at: datetime | None = None
+    last_visit_at: datetime | None = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True

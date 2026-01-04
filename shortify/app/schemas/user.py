@@ -1,11 +1,10 @@
 import re
 from datetime import datetime
-from typing import Optional
 
-from pydantic import BaseModel, ConstrainedStr, EmailStr
+from pydantic import BaseModel, EmailStr, StringConstraints
 
 
-class ConstrainedUsername(ConstrainedStr):
+class ConstrainedUsername(StringConstraints):
     min_length = 3
     max_length = 64
     regex = re.compile(r"^[A-Za-z0-9-_.]+$")
@@ -15,8 +14,8 @@ class ConstrainedUsername(ConstrainedStr):
 
 # Shared properties between user models
 class UserBase(BaseModel):
-    username: Optional[str] = None
-    email: Optional[EmailStr] = None
+    username: str | None = None
+    email: EmailStr | None = None
     is_active: bool = True
     is_superuser: bool = False
 
@@ -30,7 +29,7 @@ class UserCreate(UserBase):
 
 # Properties to receive on user update
 class UserUpdate(UserBase):
-    password: Optional[str] = None
+    password: str | None = None
 
 
 class UserInDBBase(UserBase):
@@ -38,7 +37,7 @@ class UserInDBBase(UserBase):
     api_key: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Properties to return via API

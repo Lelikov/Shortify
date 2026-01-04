@@ -1,63 +1,69 @@
+import datetime
 import random
-from datetime import datetime, timedelta
-from hashlib import md5
-from typing import TYPE_CHECKING, List, Optional
+import string
+from typing import TYPE_CHECKING, Optional
 
 from beanie import Document, Indexed, PydanticObjectId
-from pydantic import Field
+from pydantic import AnyUrl, Field
 
 from shortify.app.core.config import settings
+
 
 if TYPE_CHECKING:
     from shortify.app.schemas import PaginationParams, SortingParams
 
 
-def generate_ident(url: str, length: int) -> str:
-    """Returns a unique identifier for the given URL with the given length."""
-    digest = md5(url.encode()).hexdigest()
-    return "".join(random.choices(digest, k=length))
+def generate_ident(length: int) -> str:
+    return "-".join("".join(random.choices(string.ascii_lowercase, k=3)) for _ in range(length))
 
 
 class ShortUrl(Document):
     ident: Indexed(str, unique=True)  # type: ignore[valid-type]
+    external_id: Indexed(str, unique=True, partialFilterExpression={"external_id": {"$type": "string"}}) | None = None
     origin: str
     views: int = 0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    expires_at: Optional[  # type: ignore[valid-type]
-        Indexed(datetime, expireAfterSeconds=0)
-    ] = None
-    last_visit_at: Optional[datetime] = None
-    slug: Optional[Indexed(str, unique=True)] = None  # type: ignore[valid-type]
-    user_id: Optional[PydanticObjectId] = None
+    created_at: datetime.datetime = Field(
+        default_factory=lambda: datetime.datetime.now(datetime.UTC),
+    )
+    updated_at: datetime.datetime | None = None
+    expires_at: Indexed(datetime.datetime, expireAfterSeconds=0) | None = None
+    last_visit_at: datetime.datetime | None = None
+    user_id: PydanticObjectId | None = None
 
     @classmethod
     async def shorten(
         cls,
         *,
-        url: str,
-        slug: Optional[str] = None,
-        expiration_days: Optional[float] = None,
-        user_id: Optional[PydanticObjectId] = None,
+        url: AnyUrl,
+        external_id: str | None = None,
+        expires_at: float | None = None,
+        user_id: PydanticObjectId | None = None,
     ) -> "ShortUrl":
         return await cls(
-            ident=generate_ident(url, settings.URL_IDENT_LENGTH),
-            origin=url,
-            slug=slug,
-            expires_at=(
-                datetime.utcnow() + timedelta(days=expiration_days)
-                if expiration_days
-                else None
-            ),
+            ident=generate_ident(settings.URL_IDENT_LENGTH),
+            origin=url.encoded_string(),
+            external_id=external_id,
+            expires_at=expires_at,
             user_id=user_id,
         ).insert()
 
     @classmethod
-    async def get_by_slug(cls, *, slug: str) -> Optional["ShortUrl"]:
-        return await cls.find_one(cls.slug == slug)
+    async def get_by_ident(
+        cls,
+        *,
+        ident: str,
+        is_check_expires_at: bool = False,
+    ) -> Optional["ShortUrl"]:
+        if is_check_expires_at:
+            return await cls.find_one(
+                cls.ident == ident,
+                cls.expires_at > datetime.datetime.now(datetime.UTC),
+            )
+        return await cls.find_one(cls.ident == ident)
 
     @classmethod
-    async def get_by_ident(cls, *, ident: str) -> Optional["ShortUrl"]:
-        return await cls.find_one(cls.ident == ident)
+    async def get_by_external_id(cls, *, external_id: str) -> Optional["ShortUrl"]:
+        return await cls.find_one(cls.external_id == external_id)
 
     @classmethod
     async def get_by_user(
@@ -66,7 +72,7 @@ class ShortUrl(Document):
         user_id: PydanticObjectId,
         paging: "PaginationParams",
         sorting: "SortingParams",
-    ) -> List["ShortUrl"]:
+    ) -> list["ShortUrl"]:
         return (
             await cls.find(cls.user_id == user_id)
             .skip(paging.skip)
@@ -80,7 +86,7 @@ class ShortUrl(Document):
     @classmethod
     async def visit(cls, *, instance: "ShortUrl") -> None:
         instance.views += 1
-        instance.last_visit_at = datetime.utcnow()
+        instance.last_visit_at = datetime.datetime.now(datetime.UTC)
         await instance.save_changes()
 
     class Settings:

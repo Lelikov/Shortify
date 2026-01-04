@@ -8,14 +8,9 @@ venv/
 .venv/
 .env
 
-# MyPy cache
-.mypy_cache/
 
 # Ruff cache
 .ruff_cache/
 
 # Pycharm project settings
 .idea/
-
-# Poetry files
-poetry.toml

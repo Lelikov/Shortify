@@ -1,13 +1,10 @@
 import secrets
-from typing import List
 
-from pydantic import BaseSettings, EmailStr, MongoDsn
+from pydantic import EmailStr, MongoDsn
+from pydantic_settings import BaseSettings
 
 from shortify import __version__
 from shortify.app.core.enums import LogLevel
-
-# This adds support for 'mongodb+srv' connection schemas when using e.g. MongoDB Atlas
-MongoDsn.allowed_schemes.add("mongodb+srv")
 
 
 class Settings(BaseSettings):
@@ -16,9 +13,7 @@ class Settings(BaseSettings):
     PROJECT_VERSION: str = __version__
     API_V1_STR: str = "v1"
     DEBUG: bool = True
-    # CORS_ORIGINS is a JSON-formatted list of origins
-    # e.g: '["http://localhost", "http://localhost:4200", "http://localhost:3000"]'
-    CORS_ORIGINS: List[str] = []
+    CORS_ORIGINS: list[str] = []
     USE_CORRELATION_ID: bool = True
 
     UVICORN_HOST: str
@@ -44,7 +39,6 @@ class Settings(BaseSettings):
     URL_IDENT_LENGTH: int = 7
 
     class Config:
-        # Place your .env file under this path
         env_file = ".env"
         env_prefix = "SHORTIFY_"
         case_sensitive = True

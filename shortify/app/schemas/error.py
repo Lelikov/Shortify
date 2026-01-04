@@ -1,6 +1,7 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from pydantic import BaseModel
+
 
 if TYPE_CHECKING:
     from pydantic import ValidationError
@@ -10,11 +11,11 @@ class ValidationErrorDetail(BaseModel):
     location: str
     message: str
     error_type: str
-    context: Optional[Dict[str, Any]] = None
+    context: dict[str, Any] | None = None
 
 
 class APIValidationError(BaseModel):
-    errors: List[ValidationErrorDetail]
+    errors: list[ValidationErrorDetail]
 
     @classmethod
     def from_pydantic(cls, exc: "ValidationError") -> "APIValidationError":
@@ -31,7 +32,7 @@ class APIValidationError(BaseModel):
         )
 
     class Config:
-        schema_extra = {
+        json_schema_extra: ClassVar[dict[str, Any]] = {
             "example": {
                 "errors": [
                     {
@@ -48,4 +49,4 @@ class CommonHTTPError(BaseModel):
     """JSON response model for errors raised by :class:`starlette.HTTPException`."""
 
     message: str
-    extra: Optional[Dict[str, Any]] = None
+    extra: dict[str, Any] | None = None

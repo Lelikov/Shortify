@@ -1,8 +1,8 @@
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from http import HTTPStatus
-from typing import Set
 
-from fastapi import FastAPI, status
+from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import ORJSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -16,7 +16,7 @@ from shortify.app.schemas.error import APIValidationError, CommonHTTPError
 
 
 @asynccontextmanager
-async def lifespan(application: FastAPI):  # noqa
+async def lifespan(application: FastAPI) -> AsyncIterator[None]:  # noqa: ARG001
     configure_logging()
     await init_db.init()
     yield
@@ -38,7 +38,7 @@ tags_metadata = [
 ]
 
 # Common response codes
-responses: Set[int] = {
+responses: set[int] = {
     status.HTTP_400_BAD_REQUEST,
     status.HTTP_401_UNAUTHORIZED,
     status.HTTP_403_FORBIDDEN,
@@ -104,7 +104,7 @@ if settings.USE_CORRELATION_ID:
 
 # Custom HTTPException handler
 @app.exception_handler(StarletteHTTPException)
-async def http_exception_handler(_, exc: StarletteHTTPException) -> ORJSONResponse:
+async def http_exception_handler(_: Request, exc: StarletteHTTPException) -> ORJSONResponse:
     return ORJSONResponse(
         content={
             "message": exc.detail,
@@ -116,7 +116,7 @@ async def http_exception_handler(_, exc: StarletteHTTPException) -> ORJSONRespon
 
 @app.exception_handler(RequestValidationError)
 async def custom_validation_exception_handler(
-    _,
+    _: Request,
     exc: RequestValidationError,
 ) -> ORJSONResponse:
     return ORJSONResponse(
