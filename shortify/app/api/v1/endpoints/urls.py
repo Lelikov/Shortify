@@ -36,7 +36,7 @@ def short_url_by_external_id_not_found(external_id: str) -> HTTPException:
 class BasicUserViews:
     user: User = Depends(get_current_active_user)
 
-    @router.post("/shorten", response_model=schemas.ShortUrl)
+    @router.post("/shorten", response_model=schemas.ShortUrl, status_code=status.HTTP_201_CREATED)
     async def shorten_url(self, payload: schemas.ShortUrlCreate) -> ShortUrl:
         return await ShortUrl.shorten(
             url=payload.url,

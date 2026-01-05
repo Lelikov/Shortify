@@ -3,7 +3,7 @@ from typing import cast
 from beanie import PydanticObjectId
 from fastapi import Depends, status
 from fastapi.exceptions import HTTPException
-from fastapi.security import APIKeyQuery, OAuth2PasswordBearer
+from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from jose import jwt
 from pydantic import ValidationError
 
@@ -17,7 +17,7 @@ bearer_token = OAuth2PasswordBearer(
     tokenUrl=f"/api/{settings.API_V1_STR}/auth/access-token",
     auto_error=False,
 )
-api_key_query = APIKeyQuery(name="api_key", auto_error=False)
+api_key_header = APIKeyHeader(name="api-key", auto_error=False)
 
 
 async def authenticate_bearer_token(token: str) -> User | None:
@@ -38,17 +38,14 @@ async def authenticate_bearer_token(token: str) -> User | None:
 
 
 async def get_current_user(
-    api_key: str | None = Depends(api_key_query),
+    api_key: str | None = Depends(api_key_header),
     token: str | None = Depends(bearer_token),
 ) -> User:
-    """Gets the current user from the database."""
-    if api_key:  # API Key has priority over Bearer token
+    if api_key:
         user = await User.get_by_api_key(api_key=api_key)
     elif token:
         user = await authenticate_bearer_token(token)
     else:
-        # This is the exception that is raised by the Depends() call
-        # when the user is not authenticated and auto_error is True.
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authenticated",
