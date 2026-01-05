@@ -9,6 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import ORJSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.templating import Jinja2Templates, _TemplateResponse
 
 from shortify.app import api
 from shortify.app.core.config import settings
@@ -89,6 +90,8 @@ app = FastAPI(
     },
 )
 
+templates = Jinja2Templates(directory="shortify/app/templates")
+
 app.mount("/static", StaticFiles(directory="shortify/app/static"), name="static")
 
 app.include_router(api.router)
@@ -112,7 +115,15 @@ if settings.USE_CORRELATION_ID:
 
 
 @app.exception_handler(StarletteHTTPException)
-async def http_exception_handler(_: Request, exc: StarletteHTTPException) -> ORJSONResponse:
+async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> _TemplateResponse | ORJSONResponse:
+    if exc.status_code == HTTPStatus.NOT_FOUND:
+        return templates.TemplateResponse(
+            request=request,
+            name="404.html",
+            context={"detail": exc.detail},
+            status_code=HTTPStatus.NOT_FOUND,
+        )
+
     return ORJSONResponse(
         content={
             "message": exc.detail,
