@@ -1,6 +1,6 @@
 version: "3.9"
 services:
-  db: # This service name will be also used as hostname for MONGODB_URI
+  db:
     image: mongo:5.0.17
     env_file:
       - .env
@@ -18,7 +18,7 @@ services:
     env_file:
       - .env
     ports:
-      - ${SHORTIFY_UVICORN_PORT}:8000
+      - ${UVICORN_PORT:-8000}:8000
     restart: always
 
 volumes:

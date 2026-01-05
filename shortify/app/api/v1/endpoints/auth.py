@@ -1,4 +1,5 @@
 from datetime import timedelta
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import ORJSONResponse
@@ -11,6 +12,7 @@ from shortify.app.core.config import settings
 from shortify.app.core.security import create_api_key
 from shortify.app.models import User
 from shortify.app.utils import cbv
+
 
 router = APIRouter(
     responses={
@@ -27,7 +29,7 @@ router = APIRouter(
     description="Retrieve an access token for the given username and password.",
 )
 async def generate_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 ) -> ORJSONResponse:
     """Get an access token for future requests."""
     user = await User.authenticate(
@@ -39,7 +41,7 @@ async def generate_access_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
         )
-    elif not user.is_active:
+    if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Inactive user",

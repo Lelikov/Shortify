@@ -1,8 +1,8 @@
-from typing import Any, List, TypedDict
+from typing import Any, TypedDict
 
 
 class PaginationDict(TypedDict):
     page: int
     per_page: int
     total: int
-    results: List[Any]
+    results: list[Any]

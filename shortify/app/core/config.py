@@ -3,24 +3,21 @@ import secrets
 from pydantic import EmailStr, MongoDsn
 from pydantic_settings import BaseSettings
 
-from shortify import __version__
 from shortify.app.core.enums import LogLevel
 
 
 class Settings(BaseSettings):
     # Application
     PROJECT_NAME: str = "Shortify"
-    PROJECT_VERSION: str = __version__
     API_V1_STR: str = "v1"
     DEBUG: bool = True
     CORS_ORIGINS: list[str] = []
     USE_CORRELATION_ID: bool = True
 
-    UVICORN_HOST: str
-    UVICORN_PORT: int
-
     # Logging
     LOG_LEVEL: str = LogLevel.INFO
+
+    SENTRY_DSN: str | None = None
 
     # MongoDB
     MONGODB_URI: MongoDsn = "mongodb://db:27017/"  # type: ignore[assignment]

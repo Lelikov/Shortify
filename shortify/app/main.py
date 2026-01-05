@@ -2,6 +2,8 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from http import HTTPStatus
 
+import sentry_sdk
+import structlog
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import ORJSONResponse
@@ -15,12 +17,24 @@ from shortify.app.db import init_db
 from shortify.app.schemas.error import APIValidationError, CommonHTTPError
 
 
+logger = structlog.get_logger(__name__)
+
+
 @asynccontextmanager
-async def lifespan(application: FastAPI) -> AsyncIterator[None]:  # noqa: ARG001
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     configure_logging()
     await init_db.init()
     yield
 
+
+if settings.SENTRY_DSN:
+    logger.info(f"Initializing Sentry with DSN: {settings.SENTRY_DSN}")
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        send_default_pii=True,
+        environment="dev" if settings.DEBUG else "production",
+        debug=settings.DEBUG,
+    )
 
 tags_metadata = [
     {
@@ -49,9 +63,7 @@ responses: set[int] = {
 app = FastAPI(
     debug=settings.DEBUG,
     title=settings.PROJECT_NAME,
-    version=settings.PROJECT_VERSION,
     description="Fast and reliable URL shortener powered by FastAPI and MongoDB.",
-    # Set current documentation specs to v1
     openapi_url=f"/api/{settings.API_V1_STR}/openapi.json",
     docs_url=None,
     redoc_url=None,

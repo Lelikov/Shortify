@@ -1,8 +1,9 @@
-from typing import TYPE_CHECKING, Type, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 from beanie import Document
 
 from shortify.app.utils.types import PaginationDict
+
 
 if TYPE_CHECKING:
     from shortify.app.schemas import PaginationParams, SortingParams
@@ -10,8 +11,8 @@ if TYPE_CHECKING:
 DocumentType = TypeVar("DocumentType", bound=Document)
 
 
-async def paginate(
-    document: Type[DocumentType],
+async def paginate[DocumentType: Document](
+    document: type[DocumentType],
     paging_params: "PaginationParams",
     sorting_params: "SortingParams",
 ) -> PaginationDict:

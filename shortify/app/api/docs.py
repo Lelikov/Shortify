@@ -4,6 +4,7 @@ from fastapi.responses import HTMLResponse
 
 from shortify.app.core.config import settings
 
+
 router = APIRouter()
 
 

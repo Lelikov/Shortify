@@ -2,18 +2,15 @@
 Correlation ID middleware implementation inspired from asgi-correlation-id project:
 https://github.com/snok/asgi-correlation-id
 """
-import sys
+
+from collections.abc import Callable
 from contextvars import ContextVar
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, TypeAlias
 from uuid import UUID, uuid4
 
 import structlog
 from starlette.datastructures import Headers, MutableHeaders
 
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
 
 if TYPE_CHECKING:
     from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -22,7 +19,7 @@ if TYPE_CHECKING:
 logger: "BoundLogger" = structlog.get_logger()
 
 # Context variable to store the correlation ID
-correlation_id: ContextVar[Optional[str]] = ContextVar("correlation_id", default=None)
+correlation_id: ContextVar[str | None] = ContextVar("correlation_id", default=None)
 
 IDGenerator: TypeAlias = Callable[[], str]
 IDValidator: TypeAlias = Callable[[str], bool]
@@ -42,8 +39,8 @@ class CorrelationMiddleware:
         "app",
         "header",
         "id_generator",
-        "id_validator",
         "id_transformer",
+        "id_validator",
     )
 
     def __init__(
@@ -52,8 +49,8 @@ class CorrelationMiddleware:
         *,
         header: str = "X-Request-ID",
         id_generator: IDGenerator = lambda: uuid4().hex,
-        id_validator: Optional[IDValidator] = is_valid_uuid4,
-        id_transformer: Optional[IDTransformer] = lambda x: x,
+        id_validator: IDValidator | None = is_valid_uuid4,
+        id_transformer: IDTransformer | None = lambda x: x,
     ) -> None:
         self.app = app
         self.header = header
@@ -84,9 +81,7 @@ class CorrelationMiddleware:
         correlation_id.set(id_)
 
         async def send_wrapper(message: "Message") -> None:
-            if message["type"] == "http.response.start" and (
-                cid := correlation_id.get()
-            ):
+            if message["type"] == "http.response.start" and (cid := correlation_id.get()):
                 headers = MutableHeaders(scope=message)
                 headers[self.header] = cid
                 headers["Access-Control-Expose-Headers"] = self.header

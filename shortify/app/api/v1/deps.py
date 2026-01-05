@@ -1,4 +1,4 @@
-from typing import Optional, cast
+from typing import cast
 
 from beanie import PydanticObjectId
 from fastapi import Depends, status
@@ -12,6 +12,7 @@ from shortify.app.core import security
 from shortify.app.core.config import settings
 from shortify.app.models import User
 
+
 bearer_token = OAuth2PasswordBearer(
     tokenUrl=f"/api/{settings.API_V1_STR}/auth/access-token",
     auto_error=False,
@@ -19,7 +20,7 @@ bearer_token = OAuth2PasswordBearer(
 api_key_query = APIKeyQuery(name="api_key", auto_error=False)
 
 
-async def authenticate_bearer_token(token: str) -> Optional[User]:
+async def authenticate_bearer_token(token: str) -> User | None:
     try:
         payload = jwt.decode(
             token,
@@ -33,12 +34,12 @@ async def authenticate_bearer_token(token: str) -> Optional[User]:
             detail="Could not validate credentials",
         ) from None
     else:
-        return await User.get(cast(PydanticObjectId, data.sub))
+        return await User.get(cast("PydanticObjectId", data.sub))
 
 
 async def get_current_user(
-    api_key: Optional[str] = Depends(api_key_query),
-    token: Optional[str] = Depends(bearer_token),
+    api_key: str | None = Depends(api_key_query),
+    token: str | None = Depends(bearer_token),
 ) -> User:
     """Gets the current user from the database."""
     if api_key:  # API Key has priority over Bearer token

@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 from pydantic.networks import EmailStr
@@ -11,6 +11,7 @@ from shortify.app.api.v1.deps import (
 from shortify.app.core.security import get_password_hash
 from shortify.app.models import ShortUrl, User
 from shortify.app.utils import cbv, paginate
+
 
 if TYPE_CHECKING:
     from shortify.app.utils.types import PaginationDict
@@ -37,9 +38,9 @@ class BasicUserViews:
     @router.get("/me/urls", response_model=schemas.Paginated[schemas.ShortUrl])
     async def get_current_user_urls(
         self,
-        paging: schemas.PaginationParams = Depends(),
-        sorting: schemas.SortingParams = Depends(),
-    ) -> Dict[str, Any]:
+        paging: Annotated[schemas.PaginationParams, Depends()],
+        sorting: Annotated[schemas.SortingParams, Depends()],
+    ) -> dict[str, Any]:
         """Get current active user's short urls."""
         results = await ShortUrl.get_by_user(
             user_id=self.user.id,
@@ -56,8 +57,8 @@ class BasicUserViews:
     @router.patch("/me", response_model=schemas.User)
     async def update_current_user(
         self,
-        password: Optional[str] = Body(None),
-        email: Optional[EmailStr] = Body(None),
+        password: Annotated[str | None, Body()] = None,
+        email: Annotated[EmailStr | None, Body()] = None,
     ) -> User:
         """Update current user using provided data."""
         if password is not None:
@@ -75,8 +76,8 @@ class SuperuserViews:
     @router.get("/", response_model=schemas.Paginated[schemas.User])
     async def get_users(
         self,
-        paging: schemas.PaginationParams = Depends(),
-        sorting: schemas.SortingParams = Depends(),
+        paging: Annotated[schemas.PaginationParams, Depends()],
+        sorting: Annotated[schemas.SortingParams, Depends()],
     ) -> "PaginationDict":
         return await paginate(User, paging, sorting)
 
@@ -105,9 +106,9 @@ class SuperuserViews:
     async def get_user_urls(
         self,
         username: str,
-        paging: schemas.PaginationParams = Depends(),
-        sorting: schemas.SortingParams = Depends(),
-    ) -> Dict[str, Any]:
+        paging: Annotated[schemas.PaginationParams, Depends()],
+        sorting: Annotated[schemas.SortingParams, Depends()],
+    ) -> dict[str, Any]:
         """Get a specific user's short urls."""
         user = await User.get_by_username(username=username)
         if not user:

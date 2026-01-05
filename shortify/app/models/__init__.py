@@ -1,5 +1,6 @@
 import sys
-from typing import Sequence, Type, TypeVar
+from collections.abc import Sequence
+from typing import TypeVar
 
 from beanie import Document
 
@@ -8,12 +9,12 @@ from beanie import Document
 from .url import ShortUrl
 from .user import User
 
+
 DocType = TypeVar("DocType", bound=Document)
 
 
-def gather_documents() -> Sequence[Type[DocType]]:
-    """Returns a list of all MongoDB document models defined in `models` module."""
-    from inspect import getmembers, isclass
+def gather_documents() -> Sequence[type[DocType]]:
+    from inspect import getmembers, isclass  # noqa: PLC0415
 
     return [
         doc

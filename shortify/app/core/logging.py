@@ -1,51 +1,52 @@
 import logging
 import logging.config
-import sys
-from typing import Any, Dict, MutableMapping, Tuple
+from collections.abc import MutableMapping
+from typing import Any, TypeAlias
 
 import structlog
 import uvicorn
 
+from shortify.app.core.config import settings
 from shortify.app.middlewares.correlation import correlation_id
 
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
-
-from shortify.app.core.config import settings
 
 EventDict: TypeAlias = MutableMapping[str, Any]
 
-LOG_LEVEL = "DEBUG" if settings.DEBUG else str(settings.LOG_LEVEL)
+LOG_LEVEL = str(settings.LOG_LEVEL)
 
 
-def add_correlation_id(_, __, event_dict: EventDict) -> EventDict:
+def add_correlation_id(_: Any, __: str, event_dict: EventDict) -> EventDict:
     if cid := correlation_id.get():
         event_dict["correlation_id"] = cid
     return event_dict
 
 
-def remove_color_message(_, __, event_dict: EventDict) -> EventDict:
+def remove_color_message(_: Any, __: str, event_dict: EventDict) -> EventDict:
     event_dict.pop("color_message", None)
     return event_dict
 
 
-# Processors that have nothing to do with output,
-# e.g. add timestamps or log level names.
-SHARED_PROCESSORS: Tuple[structlog.typing.Processor, ...] = (
+SHARED_PROCESSORS: tuple[structlog.typing.Processor, ...] = (
     structlog.contextvars.merge_contextvars,
     structlog.stdlib.add_log_level,
-    # Add extra attributes of LogRecord objects to the event dictionary
-    # so that values passed in the extra parameter of log methods pass
-    # through to log output.
+    structlog.processors.CallsiteParameterAdder(
+        {
+            structlog.processors.CallsiteParameter.PATHNAME,
+            structlog.processors.CallsiteParameter.FILENAME,
+            structlog.processors.CallsiteParameter.MODULE,
+            structlog.processors.CallsiteParameter.FUNC_NAME,
+            structlog.processors.CallsiteParameter.THREAD,
+            structlog.processors.CallsiteParameter.THREAD_NAME,
+            structlog.processors.CallsiteParameter.PROCESS,
+            structlog.processors.CallsiteParameter.PROCESS_NAME,
+        },
+    ),
     structlog.stdlib.ExtraAdder(),
-    # Add a timestamp in ISO 8601 format.
     structlog.processors.TimeStamper(fmt="iso", utc=True),
     remove_color_message,
     add_correlation_id,
 )
-LOGGING_CONFIG: Dict[str, Any] = {
+LOGGING_CONFIG: dict[str, Any] = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
