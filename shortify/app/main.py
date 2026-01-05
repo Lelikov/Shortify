@@ -64,7 +64,7 @@ app = FastAPI(
     debug=settings.DEBUG,
     title=settings.PROJECT_NAME,
     description="Fast and reliable URL shortener powered by FastAPI and MongoDB.",
-    openapi_url=f"/api/{settings.API_V1_STR}/openapi.json",
+    openapi_url=f"/api/{settings.API_V1_STR}/openapi.json" if settings.DEBUG else None,
     docs_url=None,
     redoc_url=None,
     default_response_class=ORJSONResponse,
@@ -91,12 +91,9 @@ app = FastAPI(
 
 app.mount("/static", StaticFiles(directory="shortify/app/static"), name="static")
 
-# Add the router responsible for all /api/ endpoint requests
 app.include_router(api.router)
-# Include redirection router in the main app
 app.include_router(api.redirect.router)
 
-# Set all CORS enabled origins
 if settings.CORS_ORIGINS:
     from fastapi.middleware.cors import CORSMiddleware
 
@@ -114,7 +111,6 @@ if settings.USE_CORRELATION_ID:
     app.add_middleware(CorrelationMiddleware)
 
 
-# Custom HTTPException handler
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(_: Request, exc: StarletteHTTPException) -> ORJSONResponse:
     return ORJSONResponse(

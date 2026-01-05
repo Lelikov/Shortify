@@ -108,8 +108,8 @@ class SuperuserViews:
             raise short_url_by_external_id_not_found(external_id)
         await short_url.delete()
 
+    @staticmethod
     async def _update_short_url(
-        self,
         short_url: ShortUrl,
         payload: schemas.ShortUrlUpdate,
     ) -> ShortUrl:

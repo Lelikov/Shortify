@@ -39,6 +39,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_prefix = "SHORTIFY_"
         case_sensitive = True
+        extra = "ignore"
 
 
 # Missing named arguments are filled with environment variables
