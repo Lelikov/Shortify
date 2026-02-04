@@ -108,7 +108,7 @@ app.include_router(api.router)
 app.include_router(api.redirect.router)
 app.include_router(admin_router, prefix=settings.ADMIN_PATH)
 if not settings.DEBUG:
-    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.DOMAIN)
+    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 
 @app.exception_handler(AdminAuthError)
