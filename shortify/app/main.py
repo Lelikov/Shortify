@@ -8,12 +8,18 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import ORJSONResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import RedirectResponse
 from starlette.templating import Jinja2Templates, _TemplateResponse
 
 from shortify.app import api
+from shortify.app.admin.deps import AdminAuthError
+from shortify.app.admin.router import router as admin_router
 from shortify.app.core.config import settings
 from shortify.app.core.logging import configure_logging
+from shortify.app.core.rate_limit import limiter
 from shortify.app.db import init_db
 from shortify.app.schemas.error import APIValidationError, CommonHTTPError
 
@@ -90,12 +96,22 @@ app = FastAPI(
     },
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 templates = Jinja2Templates(directory="shortify/app/templates")
 
 app.mount("/static", StaticFiles(directory="shortify/app/static"), name="static")
 
 app.include_router(api.router)
 app.include_router(api.redirect.router)
+app.include_router(admin_router, prefix=settings.ADMIN_PATH)
+
+
+@app.exception_handler(AdminAuthError)
+async def admin_auth_exception_handler(_: Request, __: AdminAuthError) -> RedirectResponse:
+    return RedirectResponse(url=f"{settings.ADMIN_PATH}/login", status_code=status.HTTP_302_FOUND)
+
 
 if settings.CORS_ORIGINS:
     from fastapi.middleware.cors import CORSMiddleware

@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     # URLs
     URL_IDENT_LENGTH: int = 7
 
+    # Admin
+    ADMIN_PATH: str = "/admin"
+
     class Config:
         env_file = ".env"
         env_prefix = "SHORTIFY_"

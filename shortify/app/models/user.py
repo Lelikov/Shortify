@@ -14,6 +14,7 @@ class User(Document):
     hashed_password: str
     is_active: bool = True
     is_superuser: bool = False
+    totp_secret: str | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     api_key: str = Field(default_factory=create_api_key)
 

@@ -1,0 +1,41 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Setup 2FA - Shortify Admin{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title mb-0">Setup Two-Factor Authentication</h4>
+            </div>
+            <div class="card-body text-center">
+                <p>To secure your account, you must set up Two-Factor Authentication (2FA).</p>
+
+                <div class="mb-4">
+                    <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code" class="img-fluid border p-2">
+                </div>
+
+                <p class="text-muted small">Or manually enter this secret: <code>{{ secret }}</code></p>
+
+                {% if error %}
+                <div class="alert alert-danger" role="alert">
+                    {{ error }}
+                </div>
+                {% endif %}
+
+                <form method="post" action="{{ url_for('setup_totp_action') }}">
+                    <input type="hidden" name="secret" value="{{ secret }}">
+
+                    <div class="mb-3">
+                        <label for="code" class="form-label">Enter the 6-digit code from your app</label>
+                        <input type="text" class="form-control text-center fs-4" id="code" name="code" placeholder="000000" maxlength="6" required autocomplete="off">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">Verify & Enable</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

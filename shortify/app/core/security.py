@@ -11,7 +11,6 @@ from shortify.app.core.config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Algorithm used to generate the JWT token
 ALGORITHM = "HS256"
 
 

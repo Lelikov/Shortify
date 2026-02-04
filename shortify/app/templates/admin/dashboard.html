@@ -1,0 +1,22 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Dashboard</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Welcome, {{ user.username }}!</h5>
+                <p class="card-text">You are logged in as a superuser.</p>
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('list_users') }}" class="btn btn-primary">Manage Users</a>
+                    <a href="{{ url_for('list_urls') }}" class="btn btn-success">Manage URLs</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

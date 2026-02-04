@@ -1,0 +1,88 @@
+{% extends "admin/base.html" %}
+
+{% block title %}URL Detail - {{ url.ident }} - Shortify Admin{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">URL Detail: {{ url.ident }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyToClipboard('{{ request.base_url }}{{ url.ident }}')">Copy Short Link</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyToClipboard('{{ url.origin }}')">Copy Long Link</button>
+        </div>
+        <form method="post" action="{{ url_for('delete_url', url_id=url.id) }}" onsubmit="return confirm('Are you sure you want to delete this URL?');">
+            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+        </form>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <form method="post" action="{{ url_for('url_update', ident=url.ident) }}">
+            <div class="mb-3">
+                <label for="ident" class="form-label">Ident (Short Code)</label>
+                <input type="text" class="form-control" id="ident" value="{{ url.ident }}" disabled readonly>
+                <div class="form-text">Cannot be changed.</div>
+            </div>
+
+            <div class="mb-3">
+                <label for="origin" class="form-label">Origin URL</label>
+                <textarea class="form-control" id="origin" name="origin" rows="3" required>{{ url.origin }}</textarea>
+            </div>
+
+            <div class="mb-3">
+                <label for="external_id" class="form-label">External ID</label>
+                <input type="text" class="form-control" id="external_id" name="external_id" value="{{ url.external_id or '' }}">
+            </div>
+
+            <div class="mb-3">
+                <label for="expires_at" class="form-label">Expires At (UTC)</label>
+                <input type="datetime-local" class="form-control" id="expires_at" name="expires_at"
+                       value="{{ url.expires_at.strftime('%Y-%m-%dT%H:%M') if url.expires_at else '' }}">
+                <div class="form-text">Leave empty to never expire.</div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <a href="{{ url_for('list_urls') }}" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">Statistics</div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    Views
+                    <span class="badge bg-primary rounded-pill">{{ url.views }}</span>
+                </li>
+                <li class="list-group-item">
+                    <strong>Created At:</strong><br>
+                    {{ url.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                </li>
+                <li class="list-group-item">
+                    <strong>Last Visit:</strong><br>
+                    {{ url.last_visit_at.strftime('%Y-%m-%d %H:%M:%S') if url.last_visit_at else 'Never' }}
+                </li>
+                <li class="list-group-item">
+                    <strong>Status:</strong><br>
+                    {% if url.expires_at and url.expires_at < now %}
+                        <span class="text-danger">Expired</span>
+                    {% else %}
+                        <span class="text-success">Active</span>
+                    {% endif %}
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        alert('Copied to clipboard!');
+    }, function(err) {
+        console.error('Async: Could not copy text: ', err);
+    });
+}
+</script>
+{% endblock %}

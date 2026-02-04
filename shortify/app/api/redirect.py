@@ -6,8 +6,6 @@ from shortify.app.models import ShortUrl
 
 
 router = APIRouter(
-    # Hide this router from the OpenAPI docs since it's not a part of
-    # the API, but rather a part of the main app.
     include_in_schema=False,
     responses={
         status.HTTP_404_NOT_FOUND: {
