@@ -13,6 +13,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import RedirectResponse
 from starlette.templating import Jinja2Templates, _TemplateResponse
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from shortify.app import api
 from shortify.app.admin.deps import AdminAuthError
@@ -106,6 +107,8 @@ app.mount("/static", StaticFiles(directory="shortify/app/static"), name="static"
 app.include_router(api.router)
 app.include_router(api.redirect.router)
 app.include_router(admin_router, prefix=settings.ADMIN_PATH)
+if not settings.DEBUG:
+    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.DOMAIN)
 
 
 @app.exception_handler(AdminAuthError)

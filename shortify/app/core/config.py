@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     CORS_ORIGINS: list[str] = []
     USE_CORRELATION_ID: bool = True
+    DOMAIN: str = "localhost"
 
     # Logging
     LOG_LEVEL: str = LogLevel.INFO
