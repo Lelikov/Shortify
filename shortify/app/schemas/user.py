@@ -1,15 +1,20 @@
 import re
 from datetime import datetime
+from typing import Annotated
 
 from pydantic import BaseModel, EmailStr, StringConstraints
 
 
-class ConstrainedUsername(StringConstraints):
-    min_length = 3
-    max_length = 64
-    regex = re.compile(r"^[A-Za-z0-9-_.]+$")
-    to_lower = True
-    strip_whitespace = True
+ConstrainedUsername = Annotated[
+    str,
+    StringConstraints(
+        min_length=3,
+        max_length=64,
+        pattern=re.compile(r"^[A-Za-z0-9-_.]+$"),
+        to_lower=True,
+        strip_whitespace=True,
+    ),
+]
 
 
 # Shared properties between user models

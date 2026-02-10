@@ -19,16 +19,26 @@
     {% endif %}
 </form>
 
+{% if request.query_params.get('error') == 'forbidden' %}
+<div class="alert alert-danger" role="alert">
+    You do not have permissions for this action.
+</div>
+{% endif %}
+
 <form method="post" action="{{ url_for('batch_delete_urls') }}" id="batchDeleteForm" onsubmit="return confirm('Are you sure you want to delete selected URLs?');">
+    {% if user.is_superuser %}
     <div class="mb-2">
         <button type="submit" class="btn btn-danger btn-sm" id="deleteSelectedBtn" disabled>Delete Selected</button>
     </div>
+    {% endif %}
 
     <div class="table-responsive">
         <table class="table table-striped table-sm">
             <thead>
                 <tr>
+                    {% if user.is_superuser %}
                     <th scope="col"><input type="checkbox" id="selectAll"></th>
+                    {% endif %}
                     <th scope="col">Ident</th>
                     <th scope="col">External ID</th>
                     <th scope="col" style="width: 30%;">Origin</th>
@@ -55,7 +65,9 @@
             <tbody>
                 {% for u in urls %}
                 <tr>
+                    {% if user.is_superuser %}
                     <td><input type="checkbox" name="url_ids" value="{{ u.id }}" class="url-checkbox"></td>
+                    {% endif %}
                     <td>
                         <a href="{{ url_for('url_detail', ident=u.ident) }}" class="text-decoration-none fw-bold">{{ u.ident }}</a>
                         <a href="/{{ u.ident }}" target="_blank" class="text-muted small ms-1">↗</a>
@@ -71,7 +83,11 @@
                         {% endif %}
                     </td>
                     <td>
+                        {% if user.is_superuser %}
                         <button type="submit" form="deleteForm{{ u.id }}" class="btn btn-danger btn-sm">Delete</button>
+                        {% else %}
+                        <span class="text-muted">No actions available</span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -82,7 +98,9 @@
 
 {# Hidden forms for individual delete to avoid nesting forms #}
 {% for u in urls %}
+{% if user.is_superuser %}
 <form method="post" action="{{ url_for('delete_url', url_id=u.id) }}" id="deleteForm{{ u.id }}" onsubmit="return confirm('Are you sure you want to delete this URL?');" style="display:none;"></form>
+{% endif %}
 {% endfor %}
 
 <nav aria-label="Page navigation">
@@ -110,6 +128,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectAll = document.getElementById('selectAll');
     const checkboxes = document.querySelectorAll('.url-checkbox');
     const deleteBtn = document.getElementById('deleteSelectedBtn');
+
+    if (!selectAll || !deleteBtn) {
+        return;
+    }
 
     function updateDeleteBtn() {
         const anyChecked = Array.from(checkboxes).some(cb => cb.checked);

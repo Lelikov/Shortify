@@ -10,7 +10,9 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, Form, Request, Response, status
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import ValidationError
 
+from shortify.app import schemas
 from shortify.app.admin.deps import AdminAuthError, CurrentAdminUser, get_current_admin_user
 from shortify.app.core import security
 from shortify.app.core.config import settings
@@ -20,6 +22,52 @@ from shortify.app.models import ShortUrl, User
 
 router = APIRouter()
 templates = Jinja2Templates(directory="shortify/app/templates")
+
+
+def superuser_required_redirect() -> RedirectResponse:
+    return RedirectResponse(
+        url=f"{settings.ADMIN_PATH}/users?error=forbidden",
+        status_code=status.HTTP_302_FOUND,
+    )
+
+
+async def render_users_page(
+    request: Request,
+    user: User,
+    q: str | None = None,
+    page: int = 1,
+    limit: int = 20,
+    success: str | None = None,
+    error: str | None = None,
+) -> Response:
+    skip = (page - 1) * limit
+    query = {}
+    if q:
+        query = {
+            "$or": [
+                {"username": {"$regex": q, "$options": "i"}},
+                {"email": {"$regex": q, "$options": "i"}},
+            ],
+        }
+
+    users = await User.find(query).skip(skip).limit(limit).to_list()
+    total_count = await User.find(query).count()
+    total_pages = (total_count + limit - 1) // limit
+
+    return templates.TemplateResponse(
+        request=request,
+        name="admin/users.html",
+        context={
+            "request": request,
+            "user": user,
+            "users": users,
+            "q": q,
+            "page": page,
+            "total_pages": total_pages,
+            "success": success,
+            "error": error,
+        },
+    )
 
 
 @router.get("/login", include_in_schema=False, response_model=None)
@@ -46,11 +94,11 @@ async def login_action(
     totp_code: Annotated[str | None, Form()] = None,
 ) -> Response:
     user = await User.authenticate(username=username, password=password)
-    if not user or not user.is_active or not user.is_superuser:
+    if not user or not user.is_active:
         return templates.TemplateResponse(
             request=request,
             name="admin/login.html",
-            context={"error": "Invalid credentials or insufficient permissions"},
+            context={"error": "Invalid credentials or inactive user"},
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
 
@@ -168,38 +216,120 @@ async def list_users(
     if not user.totp_secret:
         return RedirectResponse(url=f"{settings.ADMIN_PATH}/setup-totp", status_code=status.HTTP_302_FOUND)
 
-    skip = (page - 1) * limit
-    query = {}
-    if q:
-        query = {
-            "$or": [
-                {"username": {"$regex": q, "$options": "i"}},
-                {"email": {"$regex": q, "$options": "i"}},
-            ],
-        }
-
-    users = await User.find(query).skip(skip).limit(limit).to_list()
-    total_count = await User.find(query).count()
-    total_pages = (total_count + limit - 1) // limit
-
-    return templates.TemplateResponse(
+    return await render_users_page(
         request=request,
-        name="admin/users.html",
-        context={
-            "request": request,
-            "user": user,
-            "users": users,
-            "q": q,
-            "page": page,
-            "total_pages": total_pages,
-        },
+        user=user,
+        q=q,
+        page=page,
+        limit=limit,
+        success=request.query_params.get("success"),
+        error=request.query_params.get("error"),
+    )
+
+
+@router.post("/users/create", include_in_schema=False)
+async def create_user_action(
+    user: CurrentAdminUser,
+    username: Annotated[str, Form()],
+    email: Annotated[str, Form()],
+    password: Annotated[str, Form()],
+    superuser: Annotated[str | None, Form()] = None,
+) -> Response:
+    if not user.totp_secret:
+        return RedirectResponse(url=f"{settings.ADMIN_PATH}/setup-totp", status_code=status.HTTP_302_FOUND)
+    if not user.is_superuser:
+        return superuser_required_redirect()
+
+    if not password.strip():
+        return RedirectResponse(
+            url=f"{settings.ADMIN_PATH}/users?error=empty_password",
+            status_code=status.HTTP_302_FOUND,
+        )
+
+    try:
+        user_in = schemas.UserCreate(
+            username=username,
+            email=email,
+            password=password,
+            is_superuser=bool(superuser),
+        )
+    except ValidationError:
+        return RedirectResponse(
+            url=f"{settings.ADMIN_PATH}/users?error=invalid_user_data",
+            status_code=status.HTTP_302_FOUND,
+        )
+
+    existing_user = await User.get_by_username(username=user_in.username)
+    if existing_user:
+        return RedirectResponse(
+            url=f"{settings.ADMIN_PATH}/users?error=username_exists",
+            status_code=status.HTTP_302_FOUND,
+        )
+
+    existing_email_user = await User.find_one(User.email == user_in.email)
+    if existing_email_user:
+        return RedirectResponse(
+            url=f"{settings.ADMIN_PATH}/users?error=email_exists",
+            status_code=status.HTTP_302_FOUND,
+        )
+
+    await User(
+        username=user_in.username,
+        email=user_in.email,
+        hashed_password=security.get_password_hash(user_in.password),
+        is_superuser=user_in.is_superuser,
+        is_active=True,
+    ).insert()
+
+    return RedirectResponse(
+        url=f"{settings.ADMIN_PATH}/users?success=user_created",
+        status_code=status.HTTP_302_FOUND,
+    )
+
+
+@router.post("/users/{user_id}/reset-password", include_in_schema=False)
+async def reset_user_password(
+    user_id: PydanticObjectId,
+    user: CurrentAdminUser,
+    password: Annotated[str, Form()],
+) -> RedirectResponse:
+    if not user.totp_secret:
+        return RedirectResponse(url=f"{settings.ADMIN_PATH}/setup-totp", status_code=status.HTTP_302_FOUND)
+    if not user.is_superuser:
+        return superuser_required_redirect()
+
+    if not password.strip():
+        return RedirectResponse(
+            url=f"{settings.ADMIN_PATH}/users?error=empty_password",
+            status_code=status.HTTP_302_FOUND,
+        )
+
+    user_to_update = await User.get(user_id)
+    if not user_to_update:
+        return RedirectResponse(
+            url=f"{settings.ADMIN_PATH}/users?error=user_not_found",
+            status_code=status.HTTP_302_FOUND,
+        )
+
+    user_to_update.hashed_password = security.get_password_hash(password)
+    await user_to_update.save()
+
+    return RedirectResponse(
+        url=f"{settings.ADMIN_PATH}/users?success=password_reset",
+        status_code=status.HTTP_302_FOUND,
     )
 
 
 @router.post("/users/delete/{user_id}", include_in_schema=False)
 async def delete_user(
     user_id: PydanticObjectId,
+    user: CurrentAdminUser,
 ) -> RedirectResponse:
+    if not user.totp_secret:
+        return RedirectResponse(url=f"{settings.ADMIN_PATH}/setup-totp", status_code=status.HTTP_302_FOUND)
+    if not user.is_superuser:
+        return superuser_required_redirect()
+
     user_to_delete = await User.get(user_id)
     if user_to_delete:
         await user_to_delete.delete()
@@ -260,8 +390,17 @@ async def list_urls(
 
 @router.post("/urls/batch-delete", include_in_schema=False)
 async def batch_delete_urls(
+    user: CurrentAdminUser,
     url_ids: Annotated[list[str] | None, Form()] = None,
 ) -> RedirectResponse:
+    if not user.totp_secret:
+        return RedirectResponse(url=f"{settings.ADMIN_PATH}/setup-totp", status_code=status.HTTP_302_FOUND)
+    if not user.is_superuser:
+        return RedirectResponse(
+            url=f"{settings.ADMIN_PATH}/urls?error=forbidden",
+            status_code=status.HTTP_302_FOUND,
+        )
+
     if url_ids is None:
         url_ids = []
     if url_ids:
@@ -279,7 +418,16 @@ async def batch_delete_urls(
 @router.post("/urls/delete/{url_id}", include_in_schema=False)
 async def delete_url(
     url_id: PydanticObjectId,
+    user: CurrentAdminUser,
 ) -> RedirectResponse:
+    if not user.totp_secret:
+        return RedirectResponse(url=f"{settings.ADMIN_PATH}/setup-totp", status_code=status.HTTP_302_FOUND)
+    if not user.is_superuser:
+        return RedirectResponse(
+            url=f"{settings.ADMIN_PATH}/urls?error=forbidden",
+            status_code=status.HTTP_302_FOUND,
+        )
+
     url_to_delete = await ShortUrl.get(url_id)
     if url_to_delete:
         await url_to_delete.delete()
@@ -316,10 +464,14 @@ async def url_detail(
 @router.post("/urls/{ident}", include_in_schema=False)
 async def url_update(
     ident: str,
+    user: CurrentAdminUser,
     origin: Annotated[str, Form()],
     external_id: Annotated[str | None, Form()] = None,
     expires_at: Annotated[str | None, Form()] = None,
 ) -> RedirectResponse:
+    if not user.totp_secret:
+        return RedirectResponse(url=f"{settings.ADMIN_PATH}/setup-totp", status_code=status.HTTP_302_FOUND)
+
     short_url = await ShortUrl.get_by_ident(ident=ident)
     if not short_url:
         return RedirectResponse(url=f"{settings.ADMIN_PATH}/urls", status_code=status.HTTP_302_FOUND)

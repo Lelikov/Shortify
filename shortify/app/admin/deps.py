@@ -33,7 +33,7 @@ async def get_current_admin_user(request: Request) -> User:
     if not user:
         raise AdminAuthError
 
-    if not user.is_active or not user.is_superuser:
+    if not user.is_active:
         raise AdminAuthError
 
     return user
