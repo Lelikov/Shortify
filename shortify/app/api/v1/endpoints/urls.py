@@ -8,6 +8,7 @@ from shortify.app.api.v1.deps import (
     get_current_active_superuser,
     get_current_active_user,
 )
+from shortify.app.core.config import settings
 from shortify.app.models import ShortUrl, User
 from shortify.app.utils import cbv, paginate
 
@@ -42,6 +43,7 @@ class BasicUserViews:
             url=payload.url,
             external_id=payload.external_id,
             expires_at=payload.expires_at,
+            not_before=payload.not_before,
             user_id=self.user.id,
         )
 
@@ -120,6 +122,12 @@ class SuperuserViews:
             short_url.external_id = update_data["external_id"]
         if "expires_at" in update_data:
             short_url.expires_at = update_data["expires_at"]
+        if "not_before" in update_data:
+            short_url.not_before = update_data["not_before"]
+        if short_url.expires_at and "not_before" not in update_data:
+            short_url.not_before = short_url.expires_at - datetime.timedelta(
+                minutes=settings.DEFAULT_EVENT_DURATION_MINUTES,
+            )
 
         short_url.updated_at = datetime.datetime.now(datetime.UTC)
         await short_url.save()

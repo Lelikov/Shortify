@@ -27,6 +27,7 @@ class ShortUrl(Document):
     )
     updated_at: datetime.datetime | None = None
     expires_at: Indexed(datetime.datetime, expireAfterSeconds=0) | None = None
+    not_before: datetime.datetime | None = None
     last_visit_at: datetime.datetime | None = None
     user_id: PydanticObjectId | None = None
 
@@ -36,14 +37,18 @@ class ShortUrl(Document):
         *,
         url: AnyUrl,
         external_id: str | None = None,
-        expires_at: float | None = None,
+        expires_at: datetime.datetime | None = None,
+        not_before: datetime.datetime | None = None,
         user_id: PydanticObjectId | None = None,
     ) -> "ShortUrl":
+        if expires_at and not not_before:
+            not_before = expires_at - datetime.timedelta(minutes=settings.DEFAULT_EVENT_DURATION_MINUTES)
         return await cls(
             ident=generate_ident(settings.URL_IDENT_LENGTH),
             origin=url.encoded_string(),
             external_id=external_id,
             expires_at=expires_at,
+            not_before=not_before,
             user_id=user_id,
         ).insert()
 
@@ -55,9 +60,21 @@ class ShortUrl(Document):
         is_check_expires_at: bool = False,
     ) -> Optional["ShortUrl"]:
         if is_check_expires_at:
+            now = datetime.datetime.now(datetime.UTC)
             return await cls.find_one(
                 cls.ident == ident,
-                cls.expires_at > datetime.datetime.now(datetime.UTC),
+                {
+                    "$or": [
+                        {"expires_at": None},
+                        {"expires_at": {"$gt": now}},
+                    ],
+                },
+                {
+                    "$or": [
+                        {"not_before": None},
+                        {"not_before": {"$lte": now}},
+                    ],
+                },
             )
         return await cls.find_one(cls.ident == ident)
 

@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     # Admin
     ADMIN_PATH: str = "/admin"
 
+    DEFAULT_EVENT_DURATION_MINUTES: int = 70
+
     class Config:
         env_file = ".env"
         env_prefix = "SHORTIFY_"

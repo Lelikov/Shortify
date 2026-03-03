@@ -7,12 +7,14 @@ class ShortUrlCreate(BaseModel):
     url: AnyUrl
     external_id: str | None = None
     expires_at: datetime | None = None
+    not_before: datetime | None = None
 
 
 class ShortUrlUpdate(BaseModel):
     url: AnyUrl | None = None
     external_id: str | None = None
     expires_at: datetime | None = None
+    not_before: datetime | None = None
 
 
 class ShortUrl(BaseModel):
@@ -23,6 +25,7 @@ class ShortUrl(BaseModel):
     updated_at: datetime | None = None
     external_id: str | None = None
     expires_at: datetime | None = None
+    not_before: datetime | None = None
     last_visit_at: datetime | None = None
 
     class Config:

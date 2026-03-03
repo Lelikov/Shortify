@@ -362,7 +362,7 @@ async def list_urls(
         }
 
     # Validate sort_by
-    if sort_by not in ["created_at", "expires_at", "views"]:
+    if sort_by not in ["created_at", "expires_at", "not_before", "views"]:
         sort_by = "created_at"
 
     sort_direction = -1 if order == "desc" else 1
@@ -468,6 +468,7 @@ async def url_update(
     origin: Annotated[str, Form()],
     external_id: Annotated[str | None, Form()] = None,
     expires_at: Annotated[str | None, Form()] = None,
+    not_before: Annotated[str | None, Form()] = None,
 ) -> RedirectResponse:
     if not user.totp_secret:
         return RedirectResponse(url=f"{settings.ADMIN_PATH}/setup-totp", status_code=status.HTTP_302_FOUND)
@@ -478,13 +479,16 @@ async def url_update(
 
     short_url.origin = origin
     short_url.external_id = external_id or None
+    short_url.expires_at = None
+    short_url.not_before = None
 
     if expires_at:
         with contextlib.suppress(ValueError):
             short_url.expires_at = datetime.datetime.strptime(expires_at, "%Y-%m-%dT%H:%M")  # noqa: DTZ007
 
-    else:
-        short_url.expires_at = None
+    if not_before:
+        with contextlib.suppress(ValueError):
+            short_url.not_before = datetime.datetime.strptime(not_before, "%Y-%m-%dT%H:%M")  # noqa: DTZ007
 
     await short_url.save()
 
